@@ -39,7 +39,7 @@ const state = {
 const sizeProfiles = {
   small: { required: 3, transfer: 1, radius: 0.072, color: '#7dd3fc', tapCost: 1 },
   medium: { required: 5, transfer: 1, radius: 0.096, color: '#86efac', tapCost: 1 },
-  large: { required: 10, transfer: 1, radius: 0.124, color: '#f9d49a', tapCost: 1 },
+  large: { required: 10, transfer: 1, radius: 0.124, color: '#F87171', tapCost: 1 },
 };
 
 function resizeCanvas() {
@@ -492,7 +492,7 @@ function processReactionStep() {
   spawnSmokeEffect(activeNode, activeNode.size === 'large' ? '#fde68a' : '#f8fafc');
   spawnWaveEffect(activeNode);
   if (state.rewardNextBurst) {
-    state.userEnergy += activeNode.currentEnergy;
+    state.userEnergy += Math.floor(activeNode.currentEnergy / 2);
     state.rewardNextBurst = false;
   }
 
@@ -658,15 +658,26 @@ function drawNode(node) {
     }
 
     if (showLabel) {
-      ctx.save();
-      ctx.font = `${Math.max(11, radius * 0.46)}px Inter, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = 'rgba(248, 250, 252, 0.95)';
-      ctx.shadowColor = 'rgba(2, 6, 23, 0.65)';
-      ctx.shadowBlur = 4;
-      ctx.fillText(`${node.currentEnergy}`, 0, 0);
-      ctx.restore();
+        ctx.save();
+        ctx.font = `700 ${Math.max(16, radius * 0.8)}px Inter, sans-serif`;
+        ctx.lineWidth = Math.max(1.4, radius * 0.05);
+        ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+        ctx.fillStyle = '#1F2937';
+        ctx.fontWeight = '700';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        // Thin light outline for readability
+        ctx.strokeText(`${node.currentEnergy}`, 0, 0);
+
+        // Dark text
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+
+        ctx.fillText(`${node.currentEnergy}`, 0, 0);
+        ctx.restore();
     }
 
     if (isLocked) {
