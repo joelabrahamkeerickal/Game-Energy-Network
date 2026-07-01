@@ -15,6 +15,13 @@ const hintOverlay = document.getElementById('hintOverlay');
 const hintContent = document.getElementById('hintContent');
 const closeHintButton = document.getElementById('closeHintButton');
 
+const sounds = {
+  burst: new Audio('burst_sound.mp3'),
+  pop: new Audio('pop_sound.mp3'),
+  levelComplete: new Audio('level_completed_sound.mp3'),
+  gameOver: new Audio('game_over_sound.mp3'),
+};
+
 const state = {
   width: 0,
   height: 0,
@@ -27,6 +34,7 @@ const state = {
   effects: [],
   levelHint: '',
   levelComplete: false,
+  gameOver: false,
   isAnimating: false,
   reactionQueue: [],
   reactionTimer: null,
@@ -69,6 +77,22 @@ function saveBestScores() {
     sessionStorage.setItem('energy-network-best-scores', JSON.stringify(state.bestScores));
   } catch (error) {
     console.warn('Could not save best scores', error);
+  }
+}
+
+function playSound(soundKey) {
+  const sound = sounds[soundKey];
+  if (!sound) {
+    return;
+  }
+  try {
+    sound.currentTime = 0;
+    const playback = sound.play();
+    if (playback && typeof playback.catch === 'function') {
+      playback.catch(() => {});
+    }
+  } catch (error) {
+    console.warn(`Could not play sound ${soundKey}`, error);
   }
 }
 
@@ -384,6 +408,7 @@ function startLevel(levelNumber) {
   state.nodes = levelData.nodes;
   state.userEnergy = levelData.startEnergy;
   state.levelComplete = false;
+  state.gameOver = false;
   state.isAnimating = false;
   state.reactionQueue = [];
   state.reactionTimer = null;
@@ -474,6 +499,10 @@ function processReactionStep() {
     state.isAnimating = false;
     if (state.nodes.every((entry) => entry.state === 'dormant')) {
       completeLevel();
+    } else if (!state.nodes.some((entry) => entry.state === 'active')) {
+      triggerGameOver();
+    } else if (!state.nodes.some((entry) => entry.state === 'active' && state.userEnergy >= entry.tapCost)) {
+      triggerGameOver();
     } else {
       state.levelHint = 'The chain reaction settled. Tap again when you are ready.';
       updateHud();
@@ -488,6 +517,7 @@ function processReactionStep() {
   }
 
   activeNode.state = 'dormant';
+  playSound('burst');
   spawnBurstEffect(activeNode, activeNode.size === 'large' ? '#fb7185' : '#38bdf8');
   spawnSmokeEffect(activeNode, activeNode.size === 'large' ? '#fde68a' : '#f8fafc');
   spawnWaveEffect(activeNode);
@@ -527,7 +557,7 @@ function canInteractWithNode(node) {
 }
 
 function applyTap(nodeId) {
-  if (state.levelComplete || state.isAnimating) {
+  if (state.levelComplete || state.gameOver || state.isAnimating) {
     return;
   }
   const node = getNodeById(nodeId);
@@ -536,6 +566,7 @@ function applyTap(nodeId) {
   }
 
   const tapCost = 1;
+  playSound('pop');
   state.userEnergy -= tapCost;
   node.state = 'active';
   node.currentEnergy += 1;
@@ -554,6 +585,18 @@ function applyTap(nodeId) {
   }
 }
 
+function triggerGameOver() {
+  if (state.levelComplete || state.gameOver) {
+    return;
+  }
+  state.gameOver = true;
+  playSound('gameOver');
+  overlayTitle.textContent = 'Game over';
+  overlayText.textContent = 'The network stalled. Restart to try again.';
+  showOverlay();
+  updateHud();
+}
+
 function completeLevel() {
   state.levelComplete = true;
   const scoreEarned = state.userEnergy * 100;
@@ -563,6 +606,7 @@ function completeLevel() {
   state.bestScores.sort((a, b) => b - a);
   state.bestScores = state.bestScores.slice(0, 3);
   saveBestScores();
+  playSound('levelComplete');
   overlayTitle.textContent = 'Level complete';
   overlayText.textContent = `Score from this level: ${scoreEarned}. Total score: ${state.score}`;
   showOverlay();
