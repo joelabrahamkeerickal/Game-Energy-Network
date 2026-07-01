@@ -17,7 +17,7 @@ const closeHintButton = document.getElementById('closeHintButton');
 
 const sounds = {
   burst: new Audio('burst_sound.mp3'),
-  pop: new Audio('pop_sound.mp3'),
+  pop: new Audio('pop_sound_2.mp3'),
   levelComplete: new Audio('level_completed_sound.mp3'),
   gameOver: new Audio('game_over_sound.mp3'),
 };
