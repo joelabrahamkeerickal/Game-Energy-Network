@@ -580,7 +580,7 @@ function hideOverlay() {
 function showHintOverlay() {
   const rules = [
     '<strong>Tap</strong> - Tap on any node to charge it with energy. Each tap adds 1 unit energy to the selected node',
-    '<strong>Burst</strong> - When a node reaches its burst threshold, it bursts and sends 1 unit energy to immediate neighbors',
+    '<strong>Burst</strong> - When a node reaches its burst threshold, it bursts and sends 1 unit energy to immediate neighbors. You gain half of total energy of the node you tapped and bursted',
     '<strong>Node capacity</strong> - Blue nodes need 3 units to burst, green need 5, and red need 10',
     '<strong>Safe nodes</strong> - Safe nodes are hidden behind a shell until they absorb 3 units of energy from neighbors, or 3 taps from you. Once unlocked, they can be tapped and will burst like normal nodes',
     '<strong>Hot nodes</strong> - Hot nodes are the shaking ones that only need one more unit of energy and will burst on the next tap or energy transfer. They are a great way to start chain reactions, but be careful not to waste energy on them if you can\'t reach the rest of the network',
