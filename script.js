@@ -453,7 +453,7 @@ function queueReaction(nodeId) {
 }
 
 function unlockNode(node) {
-  if (!node.locked) {
+  if (!node || !node.locked) {
     return;
   }
   node.absorbCount += 1;
@@ -522,14 +522,16 @@ function processReactionStep() {
   state.reactionTimer = window.setTimeout(processReactionStep, 260);
 }
 
+function canInteractWithNode(node) {
+  return Boolean(node && node.state === 'active');
+}
+
 function applyTap(nodeId) {
   if (state.levelComplete || state.isAnimating) {
     return;
   }
   const node = getNodeById(nodeId);
-  if (!node || node.locked || state.userEnergy < node.tapCost) {
-    state.levelHint = 'Not enough energy. Tap a different node or restart.';
-    updateHud();
+  if (!canInteractWithNode(node) || state.userEnergy < node.tapCost) {
     return;
   }
 
@@ -537,6 +539,9 @@ function applyTap(nodeId) {
   state.userEnergy -= tapCost;
   node.state = 'active';
   node.currentEnergy += 1;
+  if (node.locked) {
+    unlockNode(node);
+  }
   state.levelHint = `Tap cost: ${tapCost} energy.`;
 
   if (node.currentEnergy >= node.requiredEnergy) {
@@ -574,11 +579,11 @@ function hideOverlay() {
 
 function showHintOverlay() {
   const rules = [
-    '<strong>Tap</strong> - Tap on any node to charge it with energy. Each tap adds 1 unit energy to the selected node.',
-    '<strong>Burst</strong> - When a node reaches its burst threshold, it bursts and sends energy to immediate neighbors only.',
-    '<strong>Node colors</strong> - Blue nodes need 3 units to burst, green need 5, and pale yellow need 10.',
-    '<strong>Safe nodes</strong> - Safe nodes are hidden behind a shell until they absorb 3 units of energy from neighbors.',
-    '<strong>Hot nodes</strong> - Hot nodes are the shaking ones that only need one more unit of energy and will burst on the next tap.',
+    '<strong>Tap</strong> - Tap on any node to charge it with energy. Each tap adds 1 unit energy to the selected node',
+    '<strong>Burst</strong> - When a node reaches its burst threshold, it bursts and sends 1 unit energy to immediate neighbors',
+    '<strong>Node capacity</strong> - Blue nodes need 3 units to burst, green need 5, and red need 10',
+    '<strong>Safe nodes</strong> - Safe nodes are hidden behind a shell until they absorb 3 units of energy from neighbors, or 3 taps from you. Once unlocked, they can be tapped and will burst like normal nodes',
+    '<strong>Hot nodes</strong> - Hot nodes are the shaking ones that only need one more unit of energy and will burst on the next tap or energy transfer. They are a great way to start chain reactions, but be careful not to waste energy on them if you can\'t reach the rest of the network',
   ];
   hintContent.innerHTML = rules.map((rule) => `<div>${rule}</div>`).join('');
   hintOverlay.classList.remove('hidden');
@@ -833,7 +838,7 @@ function pointerToCanvas(event) {
 function handlePointerDown(event) {
   const { x, y } = pointerToCanvas(event);
   const hitNode = state.nodes.find((node) => {
-    if (node.locked) {
+    if (!canInteractWithNode(node)) {
       return false;
     }
     const dx = x - node.screenX;
