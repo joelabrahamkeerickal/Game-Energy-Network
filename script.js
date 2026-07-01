@@ -37,9 +37,9 @@ const state = {
 };
 
 const sizeProfiles = {
-  small: { required: 3, transfer: 1, radius: 0.072, color: '#38bdf8', tapCost: 3 },
-  medium: { required: 5, transfer: 2, radius: 0.096, color: '#22c55e', tapCost: 5 },
-  large: { required: 10, transfer: 3, radius: 0.124, color: '#f59e0b', tapCost: 7 },
+  small: { required: 3, transfer: 1, radius: 0.072, color: '#7dd3fc', tapCost: 1 },
+  medium: { required: 5, transfer: 1, radius: 0.096, color: '#86efac', tapCost: 1 },
+  large: { required: 10, transfer: 1, radius: 0.124, color: '#f9d49a', tapCost: 1 },
 };
 
 function resizeCanvas() {
@@ -523,7 +523,7 @@ function processReactionStep() {
 }
 
 function applyTap(nodeId) {
-  if (state.levelComplete) {
+  if (state.levelComplete || state.isAnimating) {
     return;
   }
   const node = getNodeById(nodeId);
@@ -533,11 +533,11 @@ function applyTap(nodeId) {
     return;
   }
 
-  const tapCost = node.size === 'small' ? 1 : node.size === 'medium' ? 2 : 3;
+  const tapCost = 1;
   state.userEnergy -= tapCost;
   node.state = 'active';
   node.currentEnergy += 1;
-  state.levelHint = `Tap cost: ${tapCost} energy for ${node.size} node.`;
+  state.levelHint = `Tap cost: ${tapCost} energy.`;
 
   if (node.currentEnergy >= node.requiredEnergy) {
     state.isAnimating = true;
@@ -576,12 +576,9 @@ function showHintOverlay() {
   const rules = [
     '<strong>Tap</strong> - Tap on any node to charge it with energy. Each tap adds 1 unit energy to the selected node.',
     '<strong>Burst</strong> - When a node reaches its burst threshold, it bursts and sends energy to immediate neighbors only.',
-    '<strong>Nodes</strong>',
-    'Blue nodes (require 3 units to burst)',
-    'Green nodes (require 5 units to burst)',
-    'Yellow nodes (require 10 units to burst)',
+    '<strong>Node colors</strong> - Blue nodes need 3 units to burst, green need 5, and pale yellow need 10.',
     '<strong>Safe nodes</strong> - Safe nodes are hidden behind a shell until they absorb 3 units of energy from neighbors.',
-    '<strong>Hot nodes</strong> - Hot nodes are the ones which only require one more unit of energy to burst. They are the ones shaking, and they will burst on the next tap.',
+    '<strong>Hot nodes</strong> - Hot nodes are the shaking ones that only need one more unit of energy and will burst on the next tap.',
   ];
   hintContent.innerHTML = rules.map((rule) => `<div>${rule}</div>`).join('');
   hintOverlay.classList.remove('hidden');
@@ -661,11 +658,15 @@ function drawNode(node) {
     }
 
     if (showLabel) {
-      ctx.fillStyle = 'rgba(2, 6, 23, 0.9)';
-      ctx.font = `${Math.max(11, radius * 0.42)}px Inter, sans-serif`;
+      ctx.save();
+      ctx.font = `${Math.max(11, radius * 0.46)}px Inter, sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
+      ctx.fillStyle = 'rgba(248, 250, 252, 0.95)';
+      ctx.shadowColor = 'rgba(2, 6, 23, 0.65)';
+      ctx.shadowBlur = 4;
       ctx.fillText(`${node.currentEnergy}`, 0, 0);
+      ctx.restore();
     }
 
     if (isLocked) {
