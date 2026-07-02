@@ -144,6 +144,7 @@ function buildGraph(nodeCount) {
         locked: false,
         unlockThreshold: 0,
         absorbCount: 0,
+        hiddenEnergy: 0,
         pulse: Math.random() * Math.PI * 2,
         size: 'small',
       });
@@ -183,15 +184,16 @@ function getInitialEnergy(requiredEnergy, levelNumber) {
 }
 
 function findStartEnergy(nodes, levelNumber) {
-  const minimumMoves = levelNumber <= 3 ? 3 : 2;
-  let budget = levelNumber <= 2 ? 14 : levelNumber <= 4 ? 18 : 24;
-  while (budget <= 36) {
-    if (canSolveWithBudget(nodes, budget, 6000) && countSolvableMoves(nodes, budget, minimumMoves)) {
-      return budget;
-    }
-    budget += 1;
-  }
-  return budget;
+  // const minimumMoves = levelNumber <= 3 ? 3 : 2;
+  // let budget = levelNumber <= 2 ? 14 : levelNumber <= 4 ? 18 : 24;
+  // while (budget <= 36) {
+  //   if (canSolveWithBudget(nodes, budget, 6000) && countSolvableMoves(nodes, budget, minimumMoves)) {
+  //     return budget;
+  //   }
+  //   budget += 1;
+  // }
+  // return budget;
+  return 1;
 }
 
 function countSolvableMoves(nodes, startEnergy, minimumMoves) {
@@ -269,12 +271,14 @@ function createLevel(levelNumber) {
       node.state = 'active';
       const riskRoll = Math.random();
       if (riskRoll < 0.24) {
-        node.currentEnergy = Math.max(0, node.requiredEnergy - 2);
+        node.hiddenEnergy = Math.max(0, Math.min(node.requiredEnergy - 1, getInitialEnergy(node.requiredEnergy, levelNumber)));
+        node.currentEnergy = 0;
         node.locked = true;
-        node.unlockThreshold = 2;
+        node.unlockThreshold = 3;
         node.absorbCount = 0;
       } else {
-        node.currentEnergy = Math.max(0, Math.min(node.requiredEnergy - 2, node.currentEnergy));
+        node.currentEnergy = Math.max(0, Math.min(node.requiredEnergy - 1, node.currentEnergy));
+        node.hiddenEnergy = 0;
         node.locked = false;
         node.unlockThreshold = 0;
         node.absorbCount = 0;
@@ -406,7 +410,8 @@ function startLevel(levelNumber) {
   const levelData = createLevel(levelNumber);
   state.level = levelNumber;
   state.nodes = levelData.nodes;
-  state.userEnergy = levelData.startEnergy;
+  state.userEnergy = 1;
+  state.carryEnergy = 0;
   state.levelComplete = false;
   state.gameOver = false;
   state.isAnimating = false;
@@ -414,7 +419,7 @@ function startLevel(levelNumber) {
   state.reactionTimer = null;
   state.effects = [];
   state.rewardNextBurst = false;
-  state.levelHint = `Use ${state.userEnergy} energy or less to wake the network.`;
+  state.levelHint = 'Use 1 energy to wake the network.';
   layoutNodes();
   updateHud();
   hideOverlay();
@@ -477,6 +482,17 @@ function queueReaction(nodeId) {
   }
 }
 
+function checkForGameOver() {
+  if (state.levelComplete || state.gameOver) {
+    return;
+  }
+
+  const hasPendingNodes = state.nodes.some((entry) => entry.state === 'active');
+  if (state.userEnergy <= 0 && hasPendingNodes) {
+    triggerGameOver();
+  }
+}
+
 function unlockNode(node) {
   if (!node || !node.locked) {
     return;
@@ -485,7 +501,10 @@ function unlockNode(node) {
   if (node.absorbCount >= node.unlockThreshold) {
     node.locked = false;
     node.state = 'active';
-    node.levelHint = 'A previously locked node opened up.';
+    node.currentEnergy = Math.max(0, Math.min(node.requiredEnergy - 1, node.hiddenEnergy || 0));
+    node.hiddenEnergy = 0;
+    node.hot = node.currentEnergy >= node.requiredEnergy - 1 && node.currentEnergy < node.requiredEnergy;
+    node.levelHint = node.hot ? 'A hot node was revealed.' : 'A previously locked node opened up.';
   }
 }
 
@@ -499,13 +518,12 @@ function processReactionStep() {
     state.isAnimating = false;
     if (state.nodes.every((entry) => entry.state === 'dormant')) {
       completeLevel();
-    } else if (!state.nodes.some((entry) => entry.state === 'active')) {
-      triggerGameOver();
-    } else if (!state.nodes.some((entry) => entry.state === 'active' && state.userEnergy >= entry.tapCost)) {
-      triggerGameOver();
     } else {
-      state.levelHint = 'The chain reaction settled. Tap again when you are ready.';
-      updateHud();
+      checkForGameOver();
+      if (!state.gameOver) {
+        state.levelHint = 'The chain reaction settled. Tap again when you are ready.';
+        updateHud();
+      }
     }
     return;
   }
@@ -533,16 +551,13 @@ function processReactionStep() {
     }
 
     const remainingCapacity = neighbor.requiredEnergy - neighbor.currentEnergy;
-    const transferAmount = Math.min(activeNode.burstTransfer, remainingCapacity);
+    const transferAmount = Math.min(1, remainingCapacity);
     if (transferAmount <= 0) {
       return;
     }
 
     spawnTransferEffect(activeNode, neighbor, transferAmount);
     neighbor.currentEnergy += transferAmount;
-    if (neighbor.locked) {
-      unlockNode(neighbor);
-    }
     if (neighbor.currentEnergy >= neighbor.requiredEnergy) {
       queueReaction(neighbor.id);
     }
@@ -569,10 +584,16 @@ function applyTap(nodeId) {
   playSound('pop');
   state.userEnergy -= tapCost;
   node.state = 'active';
-  node.currentEnergy += 1;
   if (node.locked) {
     unlockNode(node);
+    state.levelHint = node.locked
+      ? `Shell cracked (${node.absorbCount}/${node.unlockThreshold}).`
+      : (node.hot ? 'A hot node was revealed.' : 'A previously locked node opened up.');
+    updateHud();
+    checkForGameOver();
+    return;
   }
+  node.currentEnergy += 1;
   state.levelHint = `Tap cost: ${tapCost} energy.`;
 
   if (node.currentEnergy >= node.requiredEnergy) {
@@ -582,6 +603,7 @@ function applyTap(nodeId) {
     processReactionStep();
   } else {
     updateHud();
+    checkForGameOver();
   }
 }
 
@@ -590,6 +612,12 @@ function triggerGameOver() {
     return;
   }
   state.gameOver = true;
+  state.isAnimating = false;
+  state.reactionQueue = [];
+  if (state.reactionTimer) {
+    window.clearTimeout(state.reactionTimer);
+    state.reactionTimer = null;
+  }
   playSound('gameOver');
   overlayTitle.textContent = 'Game over';
   overlayText.textContent = 'The network stalled. Restart to try again.';
@@ -626,7 +654,7 @@ function showHintOverlay() {
     '<strong>Tap</strong> - Tap on any node to charge it with energy. Each tap adds 1 unit energy to the selected node',
     '<strong>Burst</strong> - When a node reaches its burst threshold, it bursts and sends 1 unit energy to immediate neighbors. You gain half of total energy of the node you tapped and bursted',
     '<strong>Node capacity</strong> - Blue nodes need 3 units to burst, green need 5, and red need 10',
-    '<strong>Safe nodes</strong> - Safe nodes are hidden behind a shell until they absorb 3 units of energy from neighbors, or 3 taps from you. Once unlocked, they can be tapped and will burst like normal nodes',
+    '<strong>Safe nodes</strong> - Safe nodes are hidden behind a white shell, until they get hit with total of 3 units of energy (either from neighbors\' energy or your tapping). On each hit, you can see the crack in the shell getting bigger. Once the shell is broken, they will behave like normal nodes',
     '<strong>Hot nodes</strong> - Hot nodes are the shaking ones that only need one more unit of energy and will burst on the next tap or energy transfer. They are a great way to start chain reactions, but be careful not to waste energy on them if you can\'t reach the rest of the network',
   ];
   hintContent.innerHTML = rules.map((rule) => `<div>${rule}</div>`).join('');
@@ -749,12 +777,12 @@ function drawNode(node) {
       ctx.arc(0, 0, shellRadius, 0, Math.PI * 2);
       ctx.stroke();
 
-      const crackCount = 4 + Math.floor(shellProgress * 4);
+      const crackCount = shellProgress <= 0 ? 0 : shellProgress < 0.34 ? 1 : 2;
       ctx.strokeStyle = 'rgba(71, 85, 105, 0.9)';
       ctx.lineWidth = 1.1;
       for (let index = 0; index < crackCount; index += 1) {
         const angle = ((index + 1) / (crackCount + 1)) * Math.PI * 2;
-        const crackLength = drawRadius * (0.16 + shellProgress * 0.16);
+        const crackLength = drawRadius * (shellProgress < 0.34 ? 0.12 : 0.2);
         const crackX = Math.cos(angle) * crackLength;
         const crackY = Math.sin(angle) * crackLength;
         ctx.beginPath();
