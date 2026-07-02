@@ -651,7 +651,7 @@ function hideOverlay() {
 
 function showHintOverlay() {
   const rules = [
-    '<strong>Tap</strong> - Tap on any node to charge it with energy. Each tap adds 1 unit energy to the selected node',
+    '<strong>Tap</strong> - Tap on any node to charge it with energy. Each tap adds 1 unit energy to the selected node, and will cost you 1 unit energy. At the start of the game you are given only 1 unit energy, so choose wisely ;)',
     '<strong>Burst</strong> - When a node reaches its burst threshold, it bursts and sends 1 unit energy to immediate neighbors. You gain half of total energy of the node you tapped and bursted',
     '<strong>Node capacity</strong> - Blue nodes need 3 units to burst, green need 5, and red need 10',
     '<strong>Safe nodes</strong> - Safe nodes are hidden behind a white shell, until they get hit with total of 3 units of energy (either from neighbors\' energy or your tapping). On each hit, you can see the crack in the shell getting bigger. Once the shell is broken, they will behave like normal nodes',
